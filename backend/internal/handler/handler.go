@@ -5,17 +5,20 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/akaitigo/shigoto-flow/backend/internal/auth"
 	"github.com/akaitigo/shigoto-flow/backend/internal/config"
 	"github.com/akaitigo/shigoto-flow/backend/internal/repository"
 )
 
 type Handler struct {
-	repo *repository.Repository
-	cfg  *config.Config
+	repo      *repository.Repository
+	cfg       *config.Config
+	oauth     *auth.OAuthManager
+	encryptor *auth.TokenEncryptor
 }
 
-func New(repo *repository.Repository, cfg *config.Config) *Handler {
-	return &Handler{repo: repo, cfg: cfg}
+func New(repo *repository.Repository, cfg *config.Config, oauth *auth.OAuthManager, encryptor *auth.TokenEncryptor) *Handler {
+	return &Handler{repo: repo, cfg: cfg, oauth: oauth, encryptor: encryptor}
 }
 
 func (h *Handler) Routes() http.Handler {

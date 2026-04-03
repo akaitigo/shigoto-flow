@@ -10,8 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/akaitigo/shigoto-flow/backend/internal/auth"
 	"github.com/akaitigo/shigoto-flow/backend/internal/config"
 	"github.com/akaitigo/shigoto-flow/backend/internal/handler"
+	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 	"github.com/akaitigo/shigoto-flow/backend/internal/repository"
 )
 
@@ -29,8 +31,32 @@ func main() {
 	}
 	defer db.Close()
 
+	encryptor, err := auth.NewTokenEncryptor([]byte(cfg.TokenEncryptionKey))
+	if err != nil {
+		slog.Warn("token encryption disabled", "error", err)
+	}
+
+	oauthMgr := auth.NewOAuthManager(nil)
+	backendURL := fmt.Sprintf("http://localhost:%d", cfg.Port)
+
+	if cfg.Google.ClientID != "" {
+		oauthMgr.RegisterProvider(model.ProviderGoogle, auth.DefaultGoogleConfig(
+			cfg.Google.ClientID, cfg.Google.ClientSecret, backendURL,
+		))
+	}
+	if cfg.Slack.ClientID != "" {
+		oauthMgr.RegisterProvider(model.ProviderSlack, auth.DefaultSlackConfig(
+			cfg.Slack.ClientID, cfg.Slack.ClientSecret, backendURL,
+		))
+	}
+	if cfg.GitHub.ClientID != "" {
+		oauthMgr.RegisterProvider(model.ProviderGitHub, auth.DefaultGitHubConfig(
+			cfg.GitHub.ClientID, cfg.GitHub.ClientSecret, backendURL,
+		))
+	}
+
 	repo := repository.New(db)
-	h := handler.New(repo, cfg)
+	h := handler.New(repo, cfg, oauthMgr, encryptor)
 	router := h.Routes()
 
 	srv := &http.Server{

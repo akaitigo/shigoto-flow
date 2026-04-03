@@ -7,13 +7,14 @@ import (
 )
 
 type Config struct {
-	Port        int
-	FrontendURL string
-	DB          DBConfig
-	Google      OAuthConfig
-	Slack       OAuthConfig
-	GitHub      OAuthConfig
-	Anthropic   AnthropicConfig
+	Port               int
+	FrontendURL        string
+	TokenEncryptionKey string
+	DB                 DBConfig
+	Google             OAuthConfig
+	Slack              OAuthConfig
+	GitHub             OAuthConfig
+	Anthropic          AnthropicConfig
 }
 
 type DBConfig struct {
@@ -52,8 +53,9 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
-		Port:        port,
-		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:3000"),
+		Port:               port,
+		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
+		TokenEncryptionKey: getEnv("TOKEN_ENCRYPTION_KEY", "01234567890123456789012345678901"),
 		DB: DBConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     dbPort,
