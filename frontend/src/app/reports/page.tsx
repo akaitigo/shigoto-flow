@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { ReportType } from "@/types/report";
 
 export default function ReportsPage() {
@@ -16,16 +17,16 @@ export default function ReportsPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="border-b bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <a href="/" className="text-xl font-bold text-gray-900">
+          <Link href="/" className="text-xl font-bold text-gray-900">
             Shigoto-Flow
-          </a>
+          </Link>
           <nav className="flex gap-6">
-            <a href="/reports" className="font-medium text-blue-600">
+            <Link href="/reports" className="font-medium text-blue-600">
               レポート
-            </a>
-            <a href="/settings" className="text-gray-600 hover:text-gray-900">
+            </Link>
+            <Link href="/settings" className="text-gray-600 hover:text-gray-900">
               設定
-            </a>
+            </Link>
           </nav>
         </div>
       </header>
