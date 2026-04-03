@@ -9,8 +9,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 	"github.com/google/uuid"
+
+	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 )
 
 type GmailSource struct {
