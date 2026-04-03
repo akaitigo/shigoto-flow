@@ -107,12 +107,14 @@ func TestOAuthManager_ExchangeCode(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(TokenResponse{
+		if err := json.NewEncoder(w).Encode(TokenResponse{
 			AccessToken:  "test-access-token",
 			RefreshToken: "test-refresh-token",
 			ExpiresIn:    3600,
 			TokenType:    "Bearer",
-		})
+		}); err != nil {
+			t.Errorf("failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -141,7 +143,9 @@ func TestOAuthManager_ExchangeCode(t *testing.T) {
 func TestOAuthManager_ExchangeCode_Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error":"invalid_grant"}`))
+		if _, err := w.Write([]byte(`{"error":"invalid_grant"}`)); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -162,11 +166,13 @@ func TestOAuthManager_ExchangeCode_Error(t *testing.T) {
 func TestOAuthManager_RefreshToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(TokenResponse{
+		if err := json.NewEncoder(w).Encode(TokenResponse{
 			AccessToken: "new-access-token",
 			ExpiresIn:   3600,
 			TokenType:   "Bearer",
-		})
+		}); err != nil {
+			t.Errorf("failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 

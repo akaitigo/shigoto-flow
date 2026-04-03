@@ -119,9 +119,9 @@ func (g *GmailSource) getMessageDetail(ctx context.Context, accessToken, message
 	}
 
 	var msg struct {
-		Snippet       string `json:"snippet"`
-		InternalDate  string `json:"internalDate"`
-		Payload       struct {
+		Snippet      string `json:"snippet"`
+		InternalDate string `json:"internalDate"`
+		Payload      struct {
 			Headers []struct {
 				Name  string `json:"name"`
 				Value string `json:"value"`
