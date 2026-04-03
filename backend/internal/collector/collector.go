@@ -31,7 +31,7 @@ func (c *Collector) CollectAll(ctx context.Context, tokens map[model.Provider]st
 
 		activities, err := src.Collect(ctx, token, date)
 		if err != nil {
-			return nil, err
+			continue
 		}
 
 		allActivities = append(allActivities, activities...)

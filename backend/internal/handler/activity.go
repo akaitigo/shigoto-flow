@@ -41,8 +41,23 @@ func (h *Handler) CollectActivities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusAccepted, map[string]string{
-		"status":  "accepted",
-		"message": "activity collection started",
-	})
+	if h.collectorSvc == nil {
+		writeError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "collector service not configured")
+		return
+	}
+
+	result, err := h.collectorSvc.CollectForUser(r.Context(), userID, time.Now())
+	if err != nil {
+		slog.Error("failed to collect activities", "error", err)
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to collect activities")
+		return
+	}
+
+	resp := map[string]interface{}{
+		"status":    "completed",
+		"collected": result.Collected,
+		"errors":    len(result.Errors),
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
