@@ -55,7 +55,7 @@ func Load() (*Config, error) {
 	return &Config{
 		Port:               port,
 		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
-		TokenEncryptionKey: getEnv("TOKEN_ENCRYPTION_KEY", "01234567890123456789012345678901"),
+		TokenEncryptionKey: os.Getenv("TOKEN_ENCRYPTION_KEY"),
 		DB: DBConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     dbPort,

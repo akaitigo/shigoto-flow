@@ -31,9 +31,14 @@ func main() {
 	}
 	defer db.Close()
 
+	if cfg.TokenEncryptionKey == "" {
+		slog.Error("TOKEN_ENCRYPTION_KEY is required (32 bytes)")
+		os.Exit(1)
+	}
 	encryptor, err := auth.NewTokenEncryptor([]byte(cfg.TokenEncryptionKey))
 	if err != nil {
-		slog.Warn("token encryption disabled", "error", err)
+		slog.Error("failed to initialize token encryptor", "error", err)
+		os.Exit(1)
 	}
 
 	oauthMgr := auth.NewOAuthManager(nil)

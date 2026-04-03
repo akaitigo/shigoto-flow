@@ -8,6 +8,7 @@ import (
 	"github.com/akaitigo/shigoto-flow/backend/internal/auth"
 	"github.com/akaitigo/shigoto-flow/backend/internal/collector"
 	"github.com/akaitigo/shigoto-flow/backend/internal/config"
+	"github.com/akaitigo/shigoto-flow/backend/internal/middleware"
 	"github.com/akaitigo/shigoto-flow/backend/internal/repository"
 )
 
@@ -45,7 +46,7 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/auth/{provider}/callback", h.OAuthCallback)
 	mux.HandleFunc("GET /api/v1/auth/{provider}", h.OAuthRedirect)
 
-	return corsMiddleware(h.cfg.FrontendURL)(mux)
+	return corsMiddleware(h.cfg.FrontendURL)(middleware.Auth(maxBodySize(mux)))
 }
 
 func corsMiddleware(frontendURL string) func(http.Handler) http.Handler {
@@ -63,6 +64,13 @@ func corsMiddleware(frontendURL string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func maxBodySize(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB
+		next.ServeHTTP(w, r)
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {
