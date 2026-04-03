@@ -7,8 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 	"github.com/google/uuid"
+
+	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 )
 
 func (h *Handler) ListReports(w http.ResponseWriter, r *http.Request) {

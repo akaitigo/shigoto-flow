@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 	"github.com/akaitigo/shigoto-flow/backend/internal/report"
-	"github.com/google/uuid"
 )
 
 type generateReportRequest struct {

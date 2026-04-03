@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/akaitigo/shigoto-flow/backend/internal/auth"
-	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 	"github.com/google/uuid"
+
+	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 )
 
 func (h *Handler) OAuthRedirect(w http.ResponseWriter, r *http.Request) {
@@ -84,28 +84,4 @@ func (h *Handler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, h.cfg.FrontendURL+"/settings?connected="+string(provider), http.StatusTemporaryRedirect)
-}
-
-func initOAuthManager(cfg *auth.OAuthManagerConfig) *auth.OAuthManager {
-	mgr := auth.NewOAuthManager(nil)
-
-	if cfg.Google.ClientID != "" {
-		mgr.RegisterProvider(model.ProviderGoogle, auth.DefaultGoogleConfig(
-			cfg.Google.ClientID, cfg.Google.ClientSecret, cfg.RedirectBase,
-		))
-	}
-
-	if cfg.Slack.ClientID != "" {
-		mgr.RegisterProvider(model.ProviderSlack, auth.DefaultSlackConfig(
-			cfg.Slack.ClientID, cfg.Slack.ClientSecret, cfg.RedirectBase,
-		))
-	}
-
-	if cfg.GitHub.ClientID != "" {
-		mgr.RegisterProvider(model.ProviderGitHub, auth.DefaultGitHubConfig(
-			cfg.GitHub.ClientID, cfg.GitHub.ClientSecret, cfg.RedirectBase,
-		))
-	}
-
-	return mgr
 }

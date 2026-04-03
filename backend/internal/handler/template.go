@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 	"github.com/google/uuid"
+
+	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 )
 
 func (h *Handler) ListTemplates(w http.ResponseWriter, r *http.Request) {
