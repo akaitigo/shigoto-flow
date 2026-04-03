@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 	"github.com/google/uuid"
+
+	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 )
 
 func (h *Handler) ListTemplates(w http.ResponseWriter, r *http.Request) {
@@ -28,10 +29,10 @@ func (h *Handler) ListTemplates(w http.ResponseWriter, r *http.Request) {
 }
 
 type createTemplateRequest struct {
-	Name      string                 `json:"name"`
-	Type      model.ReportType       `json:"type"`
+	Name      string                  `json:"name"`
+	Type      model.ReportType        `json:"type"`
 	Sections  []model.TemplateSection `json:"sections"`
-	IsDefault bool                   `json:"is_default"`
+	IsDefault bool                    `json:"is_default"`
 }
 
 func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {

@@ -24,11 +24,11 @@ func (m *mockSource) Collect(_ context.Context, _ string, _ time.Time) ([]model.
 
 func TestCollector_CollectAll(t *testing.T) {
 	tests := []struct {
-		name       string
-		sources    []Source
-		tokens     map[model.Provider]string
-		wantCount  int
-		wantErr    bool
+		name      string
+		sources   []Source
+		tokens    map[model.Provider]string
+		wantCount int
+		wantErr   bool
 	}{
 		{
 			name: "collects from all sources with tokens",

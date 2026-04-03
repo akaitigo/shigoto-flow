@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -5,12 +7,15 @@ export default function Home() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <h1 className="text-xl font-bold text-gray-900">Shigoto-Flow</h1>
           <nav className="flex gap-6">
-            <a href="/reports" className="text-gray-600 hover:text-gray-900">
+            <Link href="/reports" className="text-gray-600 hover:text-gray-900">
               レポート
-            </a>
-            <a href="/settings" className="text-gray-600 hover:text-gray-900">
+            </Link>
+            <Link
+              href="/settings"
+              className="text-gray-600 hover:text-gray-900"
+            >
               設定
-            </a>
+            </Link>
           </nav>
         </div>
       </header>
