@@ -30,3 +30,5 @@ coverage/
 # Claude
 .claude/settings.json
 .claude/settings.local.json
+backend/bin/
+backend/server
