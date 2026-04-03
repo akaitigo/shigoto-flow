@@ -45,6 +45,12 @@ func (h *Handler) ListReports(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetReport(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user ID")
+		return
+	}
+
 	id := r.PathValue("id")
 	report, err := h.repo.GetReportByID(r.Context(), id)
 	if err != nil {
@@ -53,6 +59,11 @@ func (h *Handler) GetReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if report == nil {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "report not found")
+		return
+	}
+
+	if report.UserID != userID {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "report not found")
 		return
 	}
@@ -114,7 +125,19 @@ type updateReportRequest struct {
 }
 
 func (h *Handler) UpdateReport(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user ID")
+		return
+	}
+
 	id := r.PathValue("id")
+
+	report, err := h.repo.GetReportByID(r.Context(), id)
+	if err != nil || report == nil || report.UserID != userID {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "report not found")
+		return
+	}
 
 	var req updateReportRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
