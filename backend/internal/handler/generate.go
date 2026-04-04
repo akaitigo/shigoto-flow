@@ -31,6 +31,11 @@ func (h *Handler) GenerateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !isValidReportType(req.Type) {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "type must be daily, weekly, or monthly")
+		return
+	}
+
 	date, err := time.Parse("2006-01-02", req.Date)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "invalid date format, use YYYY-MM-DD")

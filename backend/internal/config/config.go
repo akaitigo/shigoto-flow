@@ -11,6 +11,7 @@ type Config struct {
 	FrontendURL        string
 	BackendURL         string
 	TokenEncryptionKey string
+	JWTSecret          string
 	DB                 DBConfig
 	Google             OAuthConfig
 	Slack              OAuthConfig
@@ -59,6 +60,7 @@ func Load() (*Config, error) {
 		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
 		BackendURL:         getEnv("BACKEND_URL", "http://localhost:8080"),
 		TokenEncryptionKey: os.Getenv("TOKEN_ENCRYPTION_KEY"),
+		JWTSecret:          os.Getenv("JWT_SECRET"),
 		DB: DBConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     dbPort,

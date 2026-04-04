@@ -36,6 +36,10 @@ func main() {
 		slog.Error("TOKEN_ENCRYPTION_KEY is required (32 bytes)")
 		os.Exit(1)
 	}
+	if cfg.JWTSecret == "" {
+		slog.Error("JWT_SECRET is required (32+ bytes)")
+		os.Exit(1)
+	}
 	encryptor, err := auth.NewTokenEncryptor([]byte(cfg.TokenEncryptionKey))
 	if err != nil {
 		slog.Error("failed to initialize token encryptor", "error", err)

@@ -46,7 +46,7 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/auth/{provider}/callback", h.OAuthCallback)
 	mux.HandleFunc("GET /api/v1/auth/{provider}", h.OAuthRedirect)
 
-	authMw := middleware.AuthWithSecret([]byte(h.cfg.TokenEncryptionKey))
+	authMw := middleware.AuthWithSecret([]byte(h.cfg.JWTSecret))
 	return corsMiddleware(h.cfg.FrontendURL)(authMw(maxBodySize(mux)))
 }
 
@@ -56,6 +56,10 @@ func corsMiddleware(frontendURL string) func(http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", frontendURL)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("X-Frame-Options", "DENY")
+			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusOK)

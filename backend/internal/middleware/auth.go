@@ -43,13 +43,15 @@ func UserIDFromContext(ctx context.Context) string {
 }
 
 func isPublicPath(path string) bool {
-	publicPaths := []string{
-		"/api/v1/health",
+	publicPaths := map[string]bool{
+		"/api/v1/health": true,
 	}
-	for _, p := range publicPaths {
-		if strings.HasPrefix(path, p) {
-			return true
-		}
+	if publicPaths[path] {
+		return true
+	}
+	// OAuth auth paths are public (login flow)
+	if strings.HasPrefix(path, "/api/v1/auth/") {
+		return true
 	}
 	return false
 }

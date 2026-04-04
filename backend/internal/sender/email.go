@@ -4,7 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/smtp"
+	"strings"
 )
+
+func containsCRLF(s string) bool {
+	return strings.ContainsAny(s, "\r\n")
+}
 
 type EmailSender struct {
 	host     string
@@ -29,6 +34,10 @@ func (e *EmailSender) Type() string {
 }
 
 func (e *EmailSender) Send(_ context.Context, to, subject, body string) error {
+	if containsCRLF(to) || containsCRLF(subject) {
+		return fmt.Errorf("invalid characters in email header fields")
+	}
+
 	addr := fmt.Sprintf("%s:%d", e.host, e.port)
 
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
