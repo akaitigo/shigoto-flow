@@ -55,9 +55,29 @@
 | 4 | CRITICAL | セキュリティ | main.go | nilエンクリプタでパニックの可能性 | PR #12で修正 |
 | 5 | HIGH | セキュリティ | handler.go | リクエストボディサイズ制限なし | PR #12で修正 |
 
-**CRITICAL: 4件 → 0件**
-**HIGH: 1件 → 0件**
-**ループ終了条件達成（1ラウンド）**
+**CRITICAL: 4件 → 0件 / HIGH: 1件 → 0件**
+
+### ラウンド2（深掘りレビュー）
+| # | 重要度 | カテゴリ | ファイル | 指摘内容 | 対応 |
+|---|--------|---------|---------|----------|------|
+| 1 | CRITICAL | 認証バイパス | middleware/auth.go | X-User-IDヘッダーを無検証で信頼 | PR #13でContext経由に統一 |
+| 2 | CRITICAL | 機能不全 | cmd/server/main.go | Collector未接続、常に503 | PR #13で接続 |
+| 3 | CRITICAL | 設定 | cmd/server/main.go | backendURLがlocalhost固定 | PR #13で環境変数化 |
+| 4 | CRITICAL | バリデーション | handler/report.go | ReportType/Status未検証 | PR #13で列挙値検証追加 |
+| 5 | HIGH | Slack API | collector/slack.go | ok=falseを無視、TSパースエラー握り潰し | PR #13で修正 |
+| 6 | HIGH | セキュリティ | config.go | DBパスワードデフォルト値、sslmode固定 | PR #13で環境変数化 |
+
+**CRITICAL: 4件 → 0件 / HIGH: 2件 → 0件**
+
+### ラウンド3（最終検証）
+| # | 重要度 | カテゴリ | ファイル | 指摘内容 | 対応 |
+|---|--------|---------|---------|----------|------|
+| 1 | CRITICAL | 認証 | middleware/auth.go | X-User-ID偽造で認証バイパス可能 | PR #14でHMAC署名トークン検証に切替 |
+| 2 | HIGH | セキュリティ | summary/summarizer.go | プロンプトインジェクション可能 | PR #14でsystem/userプロンプト分離 |
+| 3 | HIGH | バリデーション | handler/datasource.go | provider未検証でDB直投 | PR #14でisValidProvider追加 |
+
+**CRITICAL: 1件 → 0件 / HIGH: 2件 → 0件**
+**3ラウンド完了: CRITICAL 0 / HIGH 0 → ループ終了**
 
 ## テンプレート改善提案
 1. **golangci-lint設定**: CI環境のGoバージョンとgolangci-lintの互換性問題が頻発。`go vet` + 個別linterの直接実行が安定する
@@ -65,7 +85,12 @@
 3. **認証ミドルウェア**: スキャフォールド時点でルーターに接続しておくべき（Review Loopで毎回指摘される）
 4. **IDOR防止**: リポジトリ層のGet系メソッドにuserIDフィルタを含めるべき（ハンドラー層での確認だけでは漏れる）
 
+5. **JWT認証**: スキャフォールド時点でHMAC署名付きトークン検証を組み込むべき。X-User-IDヘッダー直信頼は3ラウンドかけて完全に排除
+6. **Claude APIプロンプト**: system/userメッセージ分離をデフォルトに。ユーザーデータを直接プロンプトに結合するパターンを禁止
+7. **Collector DI**: main.goでのサービス接続をスキャフォールド時に自動化。未接続で503になるパターンが頻出
+
 ## 所感
-- OAuth2 + AES-256-GCM暗号化の組み合わせは中小企業向けツールとして適切
-- Go + Next.jsのモノレポ構成は安定して動作
-- Review Loopで検出された認証ミドルウェア未接続は、スキャフォールド段階での自動接続で防止可能
+- Review Loop 3ラウンド実施で計 CRITICAL 9件 / HIGH 5件を検出・修正
+- ラウンド1は表面的な問題のみ、ラウンド2-3で認証バイパスやDI未接続など深部の問題を検出
+- 「X-User-IDヘッダー信頼」→「HMAC署名トークン検証」への段階的進化が3ラウンドの成果
+- スキャフォールド品質の向上が最大のテンプレート改善ポイント
