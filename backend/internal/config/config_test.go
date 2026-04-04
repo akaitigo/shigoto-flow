@@ -55,6 +55,7 @@ func TestDBConfig_DSN(t *testing.T) {
 		User:     "testuser",
 		Password: "testpass",
 		Name:     "testdb",
+		SSLMode:  "disable",
 	}
 
 	expected := "host=localhost port=5432 user=testuser password=testpass dbname=testdb sslmode=disable"

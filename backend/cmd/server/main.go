@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/akaitigo/shigoto-flow/backend/internal/auth"
+	"github.com/akaitigo/shigoto-flow/backend/internal/collector"
 	"github.com/akaitigo/shigoto-flow/backend/internal/config"
 	"github.com/akaitigo/shigoto-flow/backend/internal/handler"
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
@@ -42,7 +43,7 @@ func main() {
 	}
 
 	oauthMgr := auth.NewOAuthManager(nil)
-	backendURL := fmt.Sprintf("http://localhost:%d", cfg.Port)
+	backendURL := cfg.BackendURL
 
 	if cfg.Google.ClientID != "" {
 		oauthMgr.RegisterProvider(model.ProviderGoogle, auth.DefaultGoogleConfig(
@@ -61,7 +62,17 @@ func main() {
 	}
 
 	repo := repository.New(db)
+
+	coll := collector.New(
+		collector.NewGoogleCalendar(nil),
+		collector.NewSlack(nil),
+		collector.NewGmail(nil),
+		collector.NewGitHub(nil),
+	)
+	collSvc := collector.NewService(repo, coll, encryptor)
+
 	h := handler.New(repo, cfg, oauthMgr, encryptor)
+	h.SetCollectorService(collSvc)
 	router := h.Routes()
 
 	srv := &http.Server{

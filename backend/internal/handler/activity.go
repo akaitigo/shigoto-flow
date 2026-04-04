@@ -4,10 +4,12 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/akaitigo/shigoto-flow/backend/internal/middleware"
 )
 
 func (h *Handler) ListActivities(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	userID := middleware.UserIDFromContext(r.Context())
 	if userID == "" {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user ID")
 		return
@@ -35,7 +37,7 @@ func (h *Handler) ListActivities(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CollectActivities(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	userID := middleware.UserIDFromContext(r.Context())
 	if userID == "" {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user ID")
 		return

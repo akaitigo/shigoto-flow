@@ -73,10 +73,17 @@ func (s *SlackSource) Collect(ctx context.Context, accessToken string, date time
 		return nil, fmt.Errorf("failed to decode slack response: %w", err)
 	}
 
+	if !result.OK {
+		return nil, fmt.Errorf("slack API returned ok=false")
+	}
+
 	now := time.Now()
 	var activities []model.Activity
 	for _, msg := range result.Messages.Matches {
-		tsFloat, _ := strconv.ParseFloat(msg.TS, 64)
+		tsFloat, err := strconv.ParseFloat(msg.TS, 64)
+		if err != nil {
+			continue
+		}
 		ts := time.Unix(int64(tsFloat), 0)
 
 		activities = append(activities, model.Activity{

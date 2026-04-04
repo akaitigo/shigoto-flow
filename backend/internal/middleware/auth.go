@@ -45,7 +45,6 @@ func UserIDFromContext(ctx context.Context) string {
 func isPublicPath(path string) bool {
 	publicPaths := []string{
 		"/api/v1/health",
-		"/api/v1/auth/",
 	}
 	for _, p := range publicPaths {
 		if strings.HasPrefix(path, p) {

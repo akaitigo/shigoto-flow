@@ -4,11 +4,12 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/akaitigo/shigoto-flow/backend/internal/middleware"
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 )
 
 func (h *Handler) ListDataSources(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	userID := middleware.UserIDFromContext(r.Context())
 	if userID == "" {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user ID")
 		return
@@ -25,7 +26,7 @@ func (h *Handler) ListDataSources(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteDataSource(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	userID := middleware.UserIDFromContext(r.Context())
 	if userID == "" {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user ID")
 		return
