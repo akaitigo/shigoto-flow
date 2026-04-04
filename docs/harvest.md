@@ -77,7 +77,19 @@
 | 3 | HIGH | バリデーション | handler/datasource.go | provider未検証でDB直投 | PR #14でisValidProvider追加 |
 
 **CRITICAL: 1件 → 0件 / HIGH: 2件 → 0件**
-**3ラウンド完了: CRITICAL 0 / HIGH 0 → ループ終了**
+
+### ラウンド4（多面的深掘り）
+| # | 重要度 | カテゴリ | ファイル | 指摘内容 | 対応 |
+|---|--------|---------|---------|----------|------|
+| 1 | CRITICAL | 認証フロー | middleware/auth.go + handler/auth.go | OAuthパスが非公開→認証開始不能（chicken-and-egg） | PR #15でOAuthをpublic化、callback内でユーザー作成+JWT発行 |
+| 2 | CRITICAL | 暗号鍵管理 | config.go + handler.go | JWT署名鍵とAES暗号化鍵が同一素材 | PR #15でJWT_SECRET環境変数を新設・分離 |
+| 3 | CRITICAL | バリデーション | handler/generate.go | GenerateReportのReportType未検証 | PR #15でisValidReportType追加 |
+| 4 | HIGH | HTTPセキュリティ | handler/handler.go | セキュリティヘッダー不在 | PR #15でX-Content-Type-Options等追加 |
+| 5 | HIGH | インジェクション | sender/email.go | SMTPヘッダーインジェクション可能 | PR #15でCRLF検証追加 |
+| 6 | HIGH | アクセス制御 | middleware/auth.go | isPublicPathのHasPrefix過一致 | PR #15で/health完全一致に変更 |
+
+**CRITICAL: 3件 → 0件 / HIGH: 3件 → 0件**
+**4ラウンド完走: CRITICAL 0 / HIGH 0 → ループ終了**
 
 ## テンプレート改善提案
 1. **golangci-lint設定**: CI環境のGoバージョンとgolangci-lintの互換性問題が頻発。`go vet` + 個別linterの直接実行が安定する
