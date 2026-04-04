@@ -15,8 +15,6 @@ func TestAuth_AllowsPublicPaths(t *testing.T) {
 		path string
 	}{
 		{"/api/v1/health"},
-		{"/api/v1/auth/google"},
-		{"/api/v1/auth/google/callback"},
 	}
 
 	for _, tt := range tests {
@@ -90,8 +88,8 @@ func TestIsPublicPath(t *testing.T) {
 		public bool
 	}{
 		{"/api/v1/health", true},
-		{"/api/v1/auth/google", true},
-		{"/api/v1/auth/slack/callback", true},
+		{"/api/v1/auth/google", false},
+		{"/api/v1/auth/slack/callback", false},
 		{"/api/v1/reports", false},
 		{"/api/v1/activities", false},
 		{"/api/v1/templates", false},

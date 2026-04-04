@@ -8,11 +8,12 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/akaitigo/shigoto-flow/backend/internal/middleware"
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 )
 
 func (h *Handler) ListTemplates(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	userID := middleware.UserIDFromContext(r.Context())
 	if userID == "" {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user ID")
 		return
@@ -36,7 +37,7 @@ type createTemplateRequest struct {
 }
 
 func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	userID := middleware.UserIDFromContext(r.Context())
 	if userID == "" {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user ID")
 		return

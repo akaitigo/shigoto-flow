@@ -9,11 +9,12 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/akaitigo/shigoto-flow/backend/internal/middleware"
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 )
 
 func (h *Handler) ListReports(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	userID := middleware.UserIDFromContext(r.Context())
 	if userID == "" {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user ID")
 		return
@@ -45,7 +46,7 @@ func (h *Handler) ListReports(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetReport(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	userID := middleware.UserIDFromContext(r.Context())
 	if userID == "" {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user ID")
 		return
@@ -79,7 +80,7 @@ type createReportRequest struct {
 }
 
 func (h *Handler) CreateReport(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	userID := middleware.UserIDFromContext(r.Context())
 	if userID == "" {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user ID")
 		return
@@ -88,6 +89,11 @@ func (h *Handler) CreateReport(w http.ResponseWriter, r *http.Request) {
 	var req createReportRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		return
+	}
+
+	if !isValidReportType(req.Type) {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "type must be daily, weekly, or monthly")
 		return
 	}
 
@@ -125,7 +131,7 @@ type updateReportRequest struct {
 }
 
 func (h *Handler) UpdateReport(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	userID := middleware.UserIDFromContext(r.Context())
 	if userID == "" {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user ID")
 		return
@@ -145,6 +151,11 @@ func (h *Handler) UpdateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Status != "" && !isValidStatus(req.Status) {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "status must be draft, confirmed, or sent")
+		return
+	}
+
 	if err := h.repo.UpdateReportContent(r.Context(), id, req.Content, req.Status); err != nil {
 		slog.Error("failed to update report", "error", err)
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update report")
@@ -152,4 +163,22 @@ func (h *Handler) UpdateReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+}
+
+func isValidReportType(t model.ReportType) bool {
+	switch t {
+	case model.ReportTypeDaily, model.ReportTypeWeekly, model.ReportTypeMonthly:
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidStatus(s string) bool {
+	switch s {
+	case model.ReportStatusDraft, model.ReportStatusConfirmed, model.ReportStatusSent:
+		return true
+	default:
+		return false
+	}
 }

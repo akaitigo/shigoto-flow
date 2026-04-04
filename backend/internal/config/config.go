@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Port               int
 	FrontendURL        string
+	BackendURL         string
 	TokenEncryptionKey string
 	DB                 DBConfig
 	Google             OAuthConfig
@@ -23,12 +24,13 @@ type DBConfig struct {
 	User     string
 	Password string
 	Name     string
+	SSLMode  string
 }
 
 func (c DBConfig) DSN() string {
 	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		c.Host, c.Port, c.User, c.Password, c.Name,
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		c.Host, c.Port, c.User, c.Password, c.Name, c.SSLMode,
 	)
 }
 
@@ -55,13 +57,15 @@ func Load() (*Config, error) {
 	return &Config{
 		Port:               port,
 		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
+		BackendURL:         getEnv("BACKEND_URL", "http://localhost:8080"),
 		TokenEncryptionKey: os.Getenv("TOKEN_ENCRYPTION_KEY"),
 		DB: DBConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     dbPort,
 			User:     getEnv("DB_USER", "shigoto"),
-			Password: getEnv("DB_PASSWORD", "shigoto_dev"),
+			Password: os.Getenv("DB_PASSWORD"),
 			Name:     getEnv("DB_NAME", "shigoto_flow"),
+			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 		Google: OAuthConfig{
 			ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),

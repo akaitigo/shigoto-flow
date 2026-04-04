@@ -7,16 +7,21 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/akaitigo/shigoto-flow/backend/internal/middleware"
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 )
 
 func (h *Handler) OAuthRedirect(w http.ResponseWriter, r *http.Request) {
 	provider := model.Provider(r.PathValue("provider"))
+	if !isValidProvider(provider) {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "unsupported provider")
+		return
+	}
 
 	authURL, _, err := h.oauth.AuthURL(provider)
 	if err != nil {
 		slog.Error("failed to generate auth URL", "provider", provider, "error", err)
-		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "unsupported provider")
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "provider not configured")
 		return
 	}
 
@@ -46,9 +51,11 @@ func (h *Handler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Header.Get("X-User-ID")
+	// Use authenticated user from context; reject if not authenticated
+	userID := middleware.UserIDFromContext(r.Context())
 	if userID == "" {
-		userID = "anonymous"
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "must be logged in to connect a data source")
+		return
 	}
 
 	encAccessToken, err := h.encryptor.Encrypt(tokenResp.AccessToken)
@@ -84,4 +91,13 @@ func (h *Handler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, h.cfg.FrontendURL+"/settings?connected="+string(provider), http.StatusTemporaryRedirect)
+}
+
+func isValidProvider(p model.Provider) bool {
+	switch p {
+	case model.ProviderGoogle, model.ProviderSlack, model.ProviderGitHub, model.ProviderGmail:
+		return true
+	default:
+		return false
+	}
 }
