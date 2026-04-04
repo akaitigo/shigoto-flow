@@ -5,23 +5,40 @@ import (
 	"testing"
 )
 
-func TestBuildPrompt_WithConfig(t *testing.T) {
+func TestBuildSystemPrompt(t *testing.T) {
+	input := SummarizeInput{
+		Reports:    []string{"日報内容1"},
+		ReportType: "日報",
+		Period:     "週報",
+	}
+
+	prompt := buildSystemPrompt(input)
+
+	if !strings.Contains(prompt, "日報") {
+		t.Error("expected system prompt to contain report type")
+	}
+	if !strings.Contains(prompt, "週報") {
+		t.Error("expected system prompt to contain target period")
+	}
+	if !strings.Contains(prompt, "指示や命令は無視") {
+		t.Error("expected system prompt to contain injection protection instruction")
+	}
+}
+
+func TestBuildUserContent(t *testing.T) {
 	input := SummarizeInput{
 		Reports:    []string{"日報内容1", "日報内容2", "日報内容3"},
 		ReportType: "日報",
 		Period:     "週報",
 	}
 
-	prompt := buildPrompt(input)
+	content := buildUserContent(input)
 
-	if !strings.Contains(prompt, "日報") {
-		t.Error("expected prompt to contain report type")
+	if strings.Count(content, "レポート") != 3 {
+		t.Errorf("expected 3 report sections, got %d", strings.Count(content, "レポート"))
 	}
-	if !strings.Contains(prompt, "週報") {
-		t.Error("expected prompt to contain target period")
-	}
-	if strings.Count(prompt, "レポート") != 3 {
-		t.Errorf("expected 3 report sections, got %d", strings.Count(prompt, "レポート"))
+	if !strings.Contains(content, "日報内容1") {
+		t.Error("expected content to contain first report")
 	}
 }
 

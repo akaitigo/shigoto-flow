@@ -33,6 +33,11 @@ func (h *Handler) DeleteDataSource(w http.ResponseWriter, r *http.Request) {
 	}
 
 	provider := model.Provider(r.PathValue("provider"))
+	if !isValidProvider(provider) {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "unsupported provider")
+		return
+	}
+
 	if err := h.repo.DeleteDataSource(r.Context(), userID, provider); err != nil {
 		slog.Error("failed to delete data source", "error", err)
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to delete data source")
