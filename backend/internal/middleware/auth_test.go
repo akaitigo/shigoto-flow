@@ -4,32 +4,27 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
-func TestAuth_AllowsPublicPaths(t *testing.T) {
-	handler := Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+var testSecret = []byte("test-secret-key-for-auth-testing")
+
+func TestAuthWithSecret_AllowsPublicPaths(t *testing.T) {
+	handler := AuthWithSecret(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	tests := []struct {
-		path string
-	}{
-		{"/api/v1/health"},
-	}
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
 
-	for _, tt := range tests {
-		req := httptest.NewRequest(http.MethodGet, tt.path, nil)
-		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, req)
-
-		if rec.Code != http.StatusOK {
-			t.Errorf("path %s: expected 200, got %d", tt.path, rec.Code)
-		}
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rec.Code)
 	}
 }
 
-func TestAuth_RejectsWithoutAuth(t *testing.T) {
-	handler := Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestAuthWithSecret_RejectsWithoutAuth(t *testing.T) {
+	handler := AuthWithSecret(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -42,15 +37,35 @@ func TestAuth_RejectsWithoutAuth(t *testing.T) {
 	}
 }
 
-func TestAuth_AcceptsXUserID(t *testing.T) {
-	var gotUserID string
-	handler := Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotUserID = UserIDFromContext(r.Context())
+func TestAuthWithSecret_RejectsRawUserIDHeader(t *testing.T) {
+	handler := AuthWithSecret(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports", nil)
-	req.Header.Set("X-User-ID", "user-123")
+	req.Header.Set("X-User-ID", "attacker-id")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for raw X-User-ID header, got %d", rec.Code)
+	}
+}
+
+func TestAuthWithSecret_AcceptsValidBearerToken(t *testing.T) {
+	var gotUserID string
+	handler := AuthWithSecret(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserID = UserIDFromContext(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	token, err := GenerateToken(testSecret, "user-123", 1*time.Hour)
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -62,23 +77,44 @@ func TestAuth_AcceptsXUserID(t *testing.T) {
 	}
 }
 
-func TestAuth_AcceptsBearerToken(t *testing.T) {
-	var gotUserID string
-	handler := Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotUserID = UserIDFromContext(r.Context())
+func TestAuthWithSecret_RejectsExpiredToken(t *testing.T) {
+	handler := AuthWithSecret(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
+	token, err := GenerateToken(testSecret, "user-123", -1*time.Hour)
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports", nil)
-	req.Header.Set("Authorization", "Bearer user-456")
+	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rec.Code)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for expired token, got %d", rec.Code)
 	}
-	if gotUserID != "user-456" {
-		t.Errorf("expected user-456, got %s", gotUserID)
+}
+
+func TestAuthWithSecret_RejectsInvalidSignature(t *testing.T) {
+	wrongSecret := []byte("wrong-secret-key-for-auth-tests!")
+	handler := AuthWithSecret(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	token, err := GenerateToken(wrongSecret, "user-123", 1*time.Hour)
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for invalid signature, got %d", rec.Code)
 	}
 }
 

@@ -46,7 +46,8 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/auth/{provider}/callback", h.OAuthCallback)
 	mux.HandleFunc("GET /api/v1/auth/{provider}", h.OAuthRedirect)
 
-	return corsMiddleware(h.cfg.FrontendURL)(middleware.Auth(maxBodySize(mux)))
+	authMw := middleware.AuthWithSecret([]byte(h.cfg.TokenEncryptionKey))
+	return corsMiddleware(h.cfg.FrontendURL)(authMw(maxBodySize(mux)))
 }
 
 func corsMiddleware(frontendURL string) func(http.Handler) http.Handler {
