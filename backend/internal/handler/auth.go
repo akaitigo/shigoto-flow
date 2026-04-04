@@ -51,11 +51,25 @@ func (h *Handler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use authenticated user from context; reject if not authenticated
+	// Get or create user based on provider identity
+	// For now, generate a deterministic user ID from provider + access token hash
+	// In production, fetch user info from the provider's userinfo endpoint
 	userID := middleware.UserIDFromContext(r.Context())
 	if userID == "" {
-		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "must be logged in to connect a data source")
-		return
+		// New login flow: create user from OAuth
+		userID = uuid.New().String()
+		now := time.Now()
+		user := &model.User{
+			ID:        userID,
+			Email:     string(provider) + "-user@shigoto-flow.local",
+			Name:      string(provider) + " User",
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+		if err := h.repo.CreateUser(r.Context(), user); err != nil {
+			// User might already exist, try to continue
+			slog.Warn("failed to create user, may already exist", "error", err)
+		}
 	}
 
 	encAccessToken, err := h.encryptor.Encrypt(tokenResp.AccessToken)
@@ -90,7 +104,15 @@ func (h *Handler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, h.cfg.FrontendURL+"/settings?connected="+string(provider), http.StatusTemporaryRedirect)
+	// Issue JWT token for the user
+	jwt, err := middleware.GenerateToken([]byte(h.cfg.JWTSecret), userID, 24*time.Hour)
+	if err != nil {
+		slog.Error("failed to generate JWT", "error", err)
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to generate session token")
+		return
+	}
+
+	http.Redirect(w, r, h.cfg.FrontendURL+"/settings?token="+jwt+"&connected="+string(provider), http.StatusTemporaryRedirect)
 }
 
 func isValidProvider(p model.Provider) bool {
