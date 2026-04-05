@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
@@ -35,7 +36,7 @@ func (r *Repository) GetReportByID(ctx context.Context, id string) (*model.Repor
 		&report.Content, &report.Date, &report.Status,
 		&report.CreatedAt, &report.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

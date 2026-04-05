@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
@@ -40,7 +41,7 @@ func (r *Repository) GetDataSource(ctx context.Context, userID string, provider 
 		&ds.AccessToken, &ds.RefreshToken, &ds.ExpiresAt,
 		&ds.CreatedAt, &ds.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

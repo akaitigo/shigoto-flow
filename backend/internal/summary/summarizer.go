@@ -31,7 +31,7 @@ func (s *Summarizer) Summarize(ctx context.Context, input SummarizeInput) (strin
 	systemPrompt := buildSystemPrompt(input)
 	userContent := buildUserContent(input)
 
-	reqBody := map[string]interface{}{
+	reqBody := map[string]any{
 		"model":      "claude-sonnet-4-20250514",
 		"max_tokens": 2048,
 		"system":     systemPrompt,

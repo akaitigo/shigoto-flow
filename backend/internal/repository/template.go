@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
@@ -41,7 +42,7 @@ func (r *Repository) GetDefaultTemplate(ctx context.Context, userID string, repo
 		&tmpl.ID, &tmpl.UserID, &tmpl.Name, &tmpl.Type,
 		&sectionsJSON, &tmpl.IsDefault, &tmpl.CreatedAt, &tmpl.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

@@ -3,6 +3,8 @@ package handler
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,24 +53,46 @@ func (h *Handler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get or create user based on provider identity
-	// For now, generate a deterministic user ID from provider + access token hash
-	// In production, fetch user info from the provider's userinfo endpoint
-	userID := middleware.UserIDFromContext(r.Context())
-	if userID == "" {
-		// New login flow: create user from OAuth
+	// Fetch real user info from the provider's userinfo endpoint
+	userInfo, err := h.oauth.FetchUserInfo(r.Context(), provider, tokenResp.AccessToken)
+	if err != nil {
+		slog.Error("failed to fetch user info from provider", "provider", provider, "error", err)
+		writeError(w, http.StatusInternalServerError, "USERINFO_FAILED", "failed to retrieve user information from provider")
+		return
+	}
+
+	// Look up existing user by email, or create a new one
+	existingUser, err := h.repo.GetUserByEmail(r.Context(), userInfo.Email)
+	if err != nil {
+		slog.Error("failed to look up user by email", "email", userInfo.Email, "error", err)
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to look up user")
+		return
+	}
+
+	var userID string
+	if existingUser != nil {
+		userID = existingUser.ID
+		// Update name if changed
+		if existingUser.Name != userInfo.Name && userInfo.Name != "" {
+			existingUser.Name = userInfo.Name
+			if err := h.repo.UpdateUser(r.Context(), existingUser); err != nil {
+				slog.Warn("failed to update user name", "error", err)
+			}
+		}
+	} else {
 		userID = uuid.New().String()
 		now := time.Now()
 		user := &model.User{
 			ID:        userID,
-			Email:     string(provider) + "-user@shigoto-flow.local",
-			Name:      string(provider) + " User",
+			Email:     userInfo.Email,
+			Name:      userInfo.Name,
 			CreatedAt: now,
 			UpdatedAt: now,
 		}
 		if err := h.repo.CreateUser(r.Context(), user); err != nil {
-			// User might already exist, try to continue
-			slog.Warn("failed to create user, may already exist", "error", err)
+			slog.Error("failed to create user", "error", err)
+			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to create user")
+			return
 		}
 	}
 
@@ -105,19 +129,55 @@ func (h *Handler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Issue JWT token for the user
-	jwt, err := middleware.GenerateToken([]byte(h.cfg.JWTSecret), userID, 24*time.Hour)
+	jwtToken, err := middleware.GenerateToken([]byte(h.cfg.JWTSecret), userID, 24*time.Hour)
 	if err != nil {
 		slog.Error("failed to generate JWT", "error", err)
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to generate session token")
 		return
 	}
 
-	http.Redirect(w, r, h.cfg.FrontendURL+"/settings?token="+jwt+"&connected="+string(provider), http.StatusTemporaryRedirect)
+	// Set JWT as HttpOnly cookie instead of URL query parameter (RFC 6750 compliance)
+	frontendURL, parseErr := url.Parse(h.cfg.FrontendURL)
+	isSecure := parseErr == nil && frontendURL.Scheme == "https"
+	sameSite := http.SameSiteLaxMode
+	if isSecure {
+		sameSite = http.SameSiteNoneMode
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_token",
+		Value:    jwtToken,
+		Path:     "/",
+		Domain:   cookieDomain(h.cfg.FrontendURL),
+		MaxAge:   int((24 * time.Hour).Seconds()),
+		HttpOnly: true,
+		Secure:   isSecure,
+		SameSite: sameSite,
+	})
+
+	http.Redirect(w, r, h.cfg.FrontendURL+"/settings?connected="+string(provider), http.StatusTemporaryRedirect)
 }
 
+// cookieDomain extracts the hostname from a URL for use as cookie domain.
+// Returns empty string if parsing fails (browser will use the response origin).
+func cookieDomain(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	host := u.Hostname()
+	// Don't set domain for localhost (browsers reject it)
+	if host == "localhost" || strings.HasPrefix(host, "127.") {
+		return ""
+	}
+	return host
+}
+
+// isValidProvider checks whether the given provider is supported.
+// Gmail is NOT a separate provider; it is covered by the Google provider's scopes.
 func isValidProvider(p model.Provider) bool {
 	switch p {
-	case model.ProviderGoogle, model.ProviderSlack, model.ProviderGitHub, model.ProviderGmail:
+	case model.ProviderGoogle, model.ProviderSlack, model.ProviderGitHub:
 		return true
 	default:
 		return false

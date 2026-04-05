@@ -118,6 +118,61 @@ func TestAuthWithSecret_RejectsInvalidSignature(t *testing.T) {
 	}
 }
 
+func TestAuthWithSecret_AcceptsValidCookieToken(t *testing.T) {
+	var gotUserID string
+	handler := AuthWithSecret(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserID = UserIDFromContext(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	token, err := GenerateToken(testSecret, "cookie-user-456", 1*time.Hour)
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports", nil)
+	req.AddCookie(&http.Cookie{Name: "session_token", Value: token})
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rec.Code)
+	}
+	if gotUserID != "cookie-user-456" {
+		t.Errorf("expected cookie-user-456, got %s", gotUserID)
+	}
+}
+
+func TestAuthWithSecret_CookieTakesPrecedenceOverHeader(t *testing.T) {
+	var gotUserID string
+	handler := AuthWithSecret(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserID = UserIDFromContext(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	cookieToken, err := GenerateToken(testSecret, "cookie-user", 1*time.Hour)
+	if err != nil {
+		t.Fatalf("failed to generate cookie token: %v", err)
+	}
+	headerToken, err := GenerateToken(testSecret, "header-user", 1*time.Hour)
+	if err != nil {
+		t.Fatalf("failed to generate header token: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports", nil)
+	req.AddCookie(&http.Cookie{Name: "session_token", Value: cookieToken})
+	req.Header.Set("Authorization", "Bearer "+headerToken)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rec.Code)
+	}
+	if gotUserID != "cookie-user" {
+		t.Errorf("expected cookie-user (cookie takes precedence), got %s", gotUserID)
+	}
+}
+
 func TestIsPublicPath(t *testing.T) {
 	tests := []struct {
 		path   string

@@ -55,7 +55,7 @@ func (h *Handler) CollectActivities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := map[string]interface{}{
+	resp := map[string]any{
 		"status":    "completed",
 		"collected": result.Collected,
 		"errors":    len(result.Errors),

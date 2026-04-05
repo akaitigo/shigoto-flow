@@ -21,6 +21,7 @@ type ProviderConfig struct {
 	ClientSecret string
 	AuthURL      string
 	TokenURL     string
+	UserInfoURL  string
 	Scopes       []string
 	RedirectURL  string
 }
@@ -30,6 +31,12 @@ type TokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int    `json:"expires_in"`
 	TokenType    string `json:"token_type"`
+}
+
+// UserInfo holds user profile information retrieved from an OAuth provider.
+type UserInfo struct {
+	Email string `json:"email"`
+	Name  string `json:"name"`
 }
 
 type OAuthManager struct {
@@ -191,6 +198,98 @@ func (m *OAuthManager) CleanupExpiredStates() {
 	}
 }
 
+// StartStateCleanup starts a background goroutine that periodically removes
+// expired OAuth state entries. Call the returned cancel function to stop it.
+func (m *OAuthManager) StartStateCleanup(ctx context.Context, interval time.Duration) context.CancelFunc {
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				m.CleanupExpiredStates()
+			}
+		}
+	}()
+	return cancel
+}
+
+// FetchUserInfo retrieves user profile information from the provider's userinfo
+// endpoint using the given access token.
+func (m *OAuthManager) FetchUserInfo(ctx context.Context, provider model.Provider, accessToken string) (*UserInfo, error) {
+	cfg, ok := m.providers[provider]
+	if !ok {
+		return nil, fmt.Errorf("unknown provider: %s", provider)
+	}
+	if cfg.UserInfoURL == "" {
+		return nil, fmt.Errorf("provider %s has no userinfo URL configured", provider)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cfg.UserInfoURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create userinfo request: %w", err)
+	}
+
+	switch provider {
+	case model.ProviderGitHub:
+		req.Header.Set("Authorization", "token "+accessToken)
+	default:
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := m.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch userinfo: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("userinfo request failed with %d: %s", resp.StatusCode, string(body))
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, fmt.Errorf("failed to decode userinfo response: %w", err)
+	}
+
+	info := &UserInfo{}
+
+	// Parse email - different providers use different field names
+	if emailRaw, ok := raw["email"]; ok {
+		var email string
+		if err := json.Unmarshal(emailRaw, &email); err == nil {
+			info.Email = email
+		}
+	}
+
+	// Parse name - try "name" then "login" (GitHub)
+	if nameRaw, ok := raw["name"]; ok {
+		var name string
+		if err := json.Unmarshal(nameRaw, &name); err == nil {
+			info.Name = name
+		}
+	}
+	if info.Name == "" {
+		if loginRaw, ok := raw["login"]; ok {
+			var login string
+			if err := json.Unmarshal(loginRaw, &login); err == nil {
+				info.Name = login
+			}
+		}
+	}
+
+	if info.Email == "" {
+		return nil, fmt.Errorf("provider %s did not return an email address", provider)
+	}
+
+	return info, nil
+}
+
 func generateState() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -205,7 +304,11 @@ func DefaultGoogleConfig(clientID, clientSecret, redirectBase string) ProviderCo
 		ClientSecret: clientSecret,
 		AuthURL:      "https://accounts.google.com/o/oauth2/v2/auth",
 		TokenURL:     "https://oauth2.googleapis.com/token",
+		UserInfoURL:  "https://www.googleapis.com/oauth2/v2/userinfo",
 		Scopes: []string{
+			"openid",
+			"email",
+			"profile",
 			"https://www.googleapis.com/auth/calendar.readonly",
 			"https://www.googleapis.com/auth/gmail.readonly",
 		},
@@ -219,7 +322,8 @@ func DefaultSlackConfig(clientID, clientSecret, redirectBase string) ProviderCon
 		ClientSecret: clientSecret,
 		AuthURL:      "https://slack.com/oauth/v2/authorize",
 		TokenURL:     "https://slack.com/api/oauth.v2.access",
-		Scopes:       []string{"search:read", "users:read"},
+		UserInfoURL:  "https://slack.com/api/users.identity",
+		Scopes:       []string{"identity.basic", "identity.email", "search:read", "users:read"},
 		RedirectURL:  redirectBase + "/api/v1/auth/slack/callback",
 	}
 }
@@ -230,6 +334,7 @@ func DefaultGitHubConfig(clientID, clientSecret, redirectBase string) ProviderCo
 		ClientSecret: clientSecret,
 		AuthURL:      "https://github.com/login/oauth/authorize",
 		TokenURL:     "https://github.com/login/oauth/access_token",
+		UserInfoURL:  "https://api.github.com/user",
 		Scopes:       []string{"repo", "user:email"},
 		RedirectURL:  redirectBase + "/api/v1/auth/github/callback",
 	}

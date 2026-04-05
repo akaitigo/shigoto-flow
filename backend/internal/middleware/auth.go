@@ -18,13 +18,12 @@ func AuthWithSecret(secret []byte) func(http.Handler) http.Handler {
 				return
 			}
 
-			authHeader := r.Header.Get("Authorization")
-			if !strings.HasPrefix(authHeader, "Bearer ") {
+			token := extractToken(r)
+			if token == "" {
 				writeUnauthorized(w)
 				return
 			}
 
-			token := strings.TrimPrefix(authHeader, "Bearer ")
 			claims, err := ValidateToken(secret, token)
 			if err != nil {
 				writeUnauthorized(w)
@@ -35,6 +34,19 @@ func AuthWithSecret(secret []byte) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// extractToken reads the JWT from the session_token cookie first,
+// then falls back to the Authorization: Bearer header.
+func extractToken(r *http.Request) string {
+	if cookie, err := r.Cookie("session_token"); err == nil && cookie.Value != "" {
+		return cookie.Value
+	}
+	authHeader := r.Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		return strings.TrimPrefix(authHeader, "Bearer ")
+	}
+	return ""
 }
 
 func UserIDFromContext(ctx context.Context) string {
