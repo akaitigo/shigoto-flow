@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 )
@@ -210,5 +211,133 @@ func TestOAuthManager_CleanupExpiredStates(t *testing.T) {
 	_, err = mgr.ValidateState(state)
 	if err != nil {
 		t.Error("recent state should not be cleaned up")
+	}
+}
+
+func TestOAuthManager_StartStateCleanup(t *testing.T) {
+	mgr := NewOAuthManager(nil)
+	mgr.RegisterProvider(model.ProviderGoogle, ProviderConfig{
+		ClientID: "test",
+		AuthURL:  "https://example.com/auth",
+	})
+
+	ctx := context.Background()
+	cancel := mgr.StartStateCleanup(ctx, 50*time.Millisecond)
+
+	// Add an expired state entry manually
+	mgr.mu.Lock()
+	mgr.states["expired-state"] = stateEntry{
+		provider:  model.ProviderGoogle,
+		createdAt: time.Now().Add(-15 * time.Minute),
+	}
+	mgr.mu.Unlock()
+
+	// Wait for the cleanup goroutine to run at least once
+	time.Sleep(150 * time.Millisecond)
+
+	mgr.mu.Lock()
+	_, exists := mgr.states["expired-state"]
+	mgr.mu.Unlock()
+
+	if exists {
+		t.Error("expired state should have been cleaned up by background goroutine")
+	}
+
+	// Stop the cleanup goroutine
+	cancel()
+}
+
+func TestOAuthManager_FetchUserInfo_Google(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "Bearer test-access-token" {
+			t.Errorf("expected Bearer test-access-token, got %s", authHeader)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := w.Write([]byte(`{"email":"user@example.com","name":"Test User"}`)); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	mgr := NewOAuthManager(server.Client())
+	mgr.RegisterProvider(model.ProviderGoogle, ProviderConfig{
+		ClientID:    "test",
+		UserInfoURL: server.URL,
+	})
+
+	info, err := mgr.FetchUserInfo(context.Background(), model.ProviderGoogle, "test-access-token")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if info.Email != "user@example.com" {
+		t.Errorf("expected user@example.com, got %s", info.Email)
+	}
+	if info.Name != "Test User" {
+		t.Errorf("expected Test User, got %s", info.Name)
+	}
+}
+
+func TestOAuthManager_FetchUserInfo_GitHub(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "token gh-token" {
+			t.Errorf("expected token gh-token, got %s", authHeader)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := w.Write([]byte(`{"email":"dev@github.com","name":"","login":"octocat"}`)); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	mgr := NewOAuthManager(server.Client())
+	mgr.RegisterProvider(model.ProviderGitHub, ProviderConfig{
+		ClientID:    "test",
+		UserInfoURL: server.URL,
+	})
+
+	info, err := mgr.FetchUserInfo(context.Background(), model.ProviderGitHub, "gh-token")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if info.Email != "dev@github.com" {
+		t.Errorf("expected dev@github.com, got %s", info.Email)
+	}
+	if info.Name != "octocat" {
+		t.Errorf("expected octocat (fallback to login), got %s", info.Name)
+	}
+}
+
+func TestOAuthManager_FetchUserInfo_NoEmail(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := w.Write([]byte(`{"name":"No Email User"}`)); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	mgr := NewOAuthManager(server.Client())
+	mgr.RegisterProvider(model.ProviderGoogle, ProviderConfig{
+		ClientID:    "test",
+		UserInfoURL: server.URL,
+	})
+
+	_, err := mgr.FetchUserInfo(context.Background(), model.ProviderGoogle, "token")
+	if err == nil {
+		t.Error("expected error when email is missing")
+	}
+}
+
+func TestOAuthManager_FetchUserInfo_NoUserInfoURL(t *testing.T) {
+	mgr := NewOAuthManager(nil)
+	mgr.RegisterProvider(model.ProviderGoogle, ProviderConfig{
+		ClientID: "test",
+	})
+
+	_, err := mgr.FetchUserInfo(context.Background(), model.ProviderGoogle, "token")
+	if err == nil {
+		t.Error("expected error when userinfo URL is not configured")
 	}
 }

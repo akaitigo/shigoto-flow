@@ -75,6 +75,10 @@ func main() {
 	)
 	collSvc := collector.NewService(repo, coll, encryptor)
 
+	// Start periodic cleanup of expired OAuth state entries (every 5 minutes)
+	cleanupCancel := oauthMgr.StartStateCleanup(context.Background(), 5*time.Minute)
+	defer cleanupCancel()
+
 	h := handler.New(repo, cfg, oauthMgr, encryptor)
 	h.SetCollectorService(collSvc)
 	router := h.Routes()
