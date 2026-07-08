@@ -2,11 +2,17 @@ package summary
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 )
+
+// ErrNoReports indicates there were no source reports to summarize for the
+// requested period. Callers can treat this as a client-actionable condition
+// (the user needs to create reports first) rather than a server error.
+var ErrNoReports = errors.New("no reports found for the requested period")
 
 // reportRepository is the subset of the repository used by the summary service.
 // Using an interface keeps the service unit-testable without a live database.
@@ -44,7 +50,7 @@ func (s *Service) GenerateWeeklySummary(ctx context.Context, userID string, week
 	}
 
 	if len(dailyContents) == 0 {
-		return "", fmt.Errorf("no daily reports found for the specified week")
+		return "", fmt.Errorf("weekly summary: %w", ErrNoReports)
 	}
 
 	return s.summarizer.Summarize(ctx, SummarizeInput{
@@ -80,7 +86,7 @@ func (s *Service) GenerateMonthlySummary(ctx context.Context, userID string, mon
 	}
 
 	if len(contents) == 0 {
-		return "", fmt.Errorf("no reports found for the specified month")
+		return "", fmt.Errorf("monthly summary: %w", ErrNoReports)
 	}
 
 	return s.summarizer.Summarize(ctx, SummarizeInput{

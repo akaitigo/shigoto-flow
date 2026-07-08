@@ -1,0 +1,14 @@
+# Lightweight pre-commit hooks.
+# Activate locally with `lefthook install`. Each command is scoped by glob so
+# only the checks relevant to the staged files run (e.g. Go checks are skipped
+# for a docs-only commit). Formatting is enforced by golangci-lint (gofmt /
+# goimports formatters) and eslint.
+pre-commit:
+  parallel: true
+  commands:
+    backend:
+      glob: "backend/**/*.go"
+      run: make lint-backend test-backend
+    frontend:
+      glob: "frontend/**/*.{ts,tsx,mjs}"
+      run: make lint-frontend test-frontend

@@ -16,6 +16,7 @@ import (
 	"github.com/akaitigo/shigoto-flow/backend/internal/handler"
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 	"github.com/akaitigo/shigoto-flow/backend/internal/repository"
+	"github.com/akaitigo/shigoto-flow/backend/internal/summary"
 )
 
 func main() {
@@ -30,7 +31,7 @@ func main() {
 		slog.Error("failed to connect to database", "error", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if cfg.TokenEncryptionKey == "" {
 		slog.Error("TOKEN_ENCRYPTION_KEY is required (32 bytes)")
@@ -75,12 +76,18 @@ func main() {
 	)
 	collSvc := collector.NewService(repo, coll, encryptor)
 
+	// Weekly/monthly AI summarization (F3). Requires ANTHROPIC_API_KEY at call
+	// time; the endpoint returns an error if the key is unset.
+	summarizer := summary.New(cfg.Anthropic.APIKey, nil)
+	summarySvc := summary.NewService(repo, summarizer)
+
 	// Start periodic cleanup of expired OAuth state entries (every 5 minutes)
 	cleanupCancel := oauthMgr.StartStateCleanup(context.Background(), 5*time.Minute)
 	defer cleanupCancel()
 
 	h := handler.New(repo, cfg, oauthMgr, encryptor)
 	h.SetCollectorService(collSvc)
+	h.SetSummaryService(summarySvc)
 	router := h.Routes()
 
 	srv := &http.Server{

@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -21,6 +22,9 @@ func NewDB(cfg config.DBConfig) (*sql.DB, error) {
 
 	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(5)
+	// Recycle connections periodically so long-lived pooled connections don't
+	// become stale (e.g. dropped by the database or a proxy after idle time).
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	return db, nil
 }

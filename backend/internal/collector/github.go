@@ -44,7 +44,7 @@ func (g *GitHubSource) Collect(ctx context.Context, accessToken string, date tim
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch github events: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

@@ -57,11 +57,11 @@ func (s *Summarizer) Summarize(ctx context.Context, input SummarizeInput) (strin
 	if err != nil {
 		return "", fmt.Errorf("failed to call Claude API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("Claude API returned %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("received status %d from Claude API: %s", resp.StatusCode, string(body))
 	}
 
 	var result struct {
@@ -96,7 +96,7 @@ func buildSystemPrompt(input SummarizeInput) string {
 func buildUserContent(input SummarizeInput) string {
 	var buf bytes.Buffer
 	for i, r := range input.Reports {
-		buf.WriteString(fmt.Sprintf("--- レポート %d ---\n%s\n\n", i+1, r))
+		fmt.Fprintf(&buf, "--- レポート %d ---\n%s\n\n", i+1, r)
 	}
 	return buf.String()
 }

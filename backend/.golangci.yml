@@ -4,15 +4,14 @@ run:
   timeout: 5m
 
 linters:
+  # gofmt/goimports are configured under "formatters" (golangci-lint v2 treats
+  # them as formatters, not linters). gosimple was merged into staticcheck in v2.
   enable:
     - errcheck
     - govet
     - staticcheck
     - unused
-    - gosimple
     - ineffassign
-    - gofmt
-    - goimports
 
 formatters:
   enable:

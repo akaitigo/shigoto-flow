@@ -18,6 +18,7 @@ type Handler struct {
 	oauth        *auth.OAuthManager
 	encryptor    *auth.TokenEncryptor
 	collectorSvc *collector.Service
+	summarySvc   summaryService
 }
 
 func New(repo *repository.Repository, cfg *config.Config, oauth *auth.OAuthManager, encryptor *auth.TokenEncryptor) *Handler {
@@ -26,6 +27,10 @@ func New(repo *repository.Repository, cfg *config.Config, oauth *auth.OAuthManag
 
 func (h *Handler) SetCollectorService(svc *collector.Service) {
 	h.collectorSvc = svc
+}
+
+func (h *Handler) SetSummaryService(svc summaryService) {
+	h.summarySvc = svc
 }
 
 func (h *Handler) Routes() http.Handler {
@@ -37,6 +42,7 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/reports/{id}", h.GetReport)
 	mux.HandleFunc("PUT /api/v1/reports/{id}", h.UpdateReport)
 	mux.HandleFunc("POST /api/v1/reports/generate", h.GenerateReport)
+	mux.HandleFunc("POST /api/v1/reports/summarize", h.SummarizeReport)
 	mux.HandleFunc("GET /api/v1/activities", h.ListActivities)
 	mux.HandleFunc("POST /api/v1/activities/collect", h.CollectActivities)
 	mux.HandleFunc("GET /api/v1/templates", h.ListTemplates)

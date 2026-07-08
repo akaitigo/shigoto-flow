@@ -56,7 +56,7 @@ func (r *Repository) ListReportsByUser(ctx context.Context, userID string, repor
 	if err != nil {
 		return nil, fmt.Errorf("failed to list reports: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var reports []model.Report
 	for rows.Next() {
@@ -88,7 +88,7 @@ func (r *Repository) ListReportsByUserAndDateRange(ctx context.Context, userID s
 	if err != nil {
 		return nil, fmt.Errorf("failed to list reports by date range: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var reports []model.Report
 	for rows.Next() {
