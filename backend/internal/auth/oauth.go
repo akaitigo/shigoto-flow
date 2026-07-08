@@ -27,10 +27,23 @@ type ProviderConfig struct {
 }
 
 type TokenResponse struct {
+	AccessToken  string      `json:"access_token"`
+	RefreshToken string      `json:"refresh_token"`
+	ExpiresIn    int         `json:"expires_in"`
+	TokenType    string      `json:"token_type"`
+	AuthedUser   *AuthedUser `json:"authed_user,omitempty"`
+}
+
+// AuthedUser holds the user-level token returned by Slack's OAuth v2 flow.
+// Slack returns a bot token at the top level of the response and the
+// user token (needed for user-scoped API calls) nested under authed_user.
+type AuthedUser struct {
+	ID           string `json:"id"`
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int    `json:"expires_in"`
 	TokenType    string `json:"token_type"`
+	Scope        string `json:"scope"`
 }
 
 // UserInfo holds user profile information retrieved from an OAuth provider.
@@ -87,7 +100,13 @@ func (m *OAuthManager) AuthURL(provider model.Provider) (string, string, error) 
 	params.Set("response_type", "code")
 	params.Set("scope", strings.Join(cfg.Scopes, " "))
 	params.Set("state", state)
-	params.Set("access_type", "offline")
+
+	// access_type=offline is a Google-specific parameter used to request a
+	// refresh token. Sending it to other providers is unnecessary and can
+	// cause unexpected behavior, so only include it for Google.
+	if provider == model.ProviderGoogle {
+		params.Set("access_type", "offline")
+	}
 
 	return cfg.AuthURL + "?" + params.Encode(), state, nil
 }
@@ -144,6 +163,20 @@ func (m *OAuthManager) ExchangeCode(ctx context.Context, provider model.Provider
 	var tokenResp TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
 		return nil, fmt.Errorf("failed to decode token response: %w", err)
+	}
+
+	// Slack OAuth v2 returns the bot token at the top level (access_token) and
+	// the user token under authed_user.access_token. User-scoped API calls
+	// (e.g. users.identity, search.messages) require the user token, so
+	// promote it to be the effective access token for Slack.
+	if provider == model.ProviderSlack && tokenResp.AuthedUser != nil && tokenResp.AuthedUser.AccessToken != "" {
+		tokenResp.AccessToken = tokenResp.AuthedUser.AccessToken
+		if tokenResp.AuthedUser.RefreshToken != "" {
+			tokenResp.RefreshToken = tokenResp.AuthedUser.RefreshToken
+		}
+		if tokenResp.AuthedUser.ExpiresIn != 0 {
+			tokenResp.ExpiresIn = tokenResp.AuthedUser.ExpiresIn
+		}
 	}
 
 	return &tokenResp, nil
@@ -259,26 +292,42 @@ func (m *OAuthManager) FetchUserInfo(ctx context.Context, provider model.Provide
 
 	info := &UserInfo{}
 
-	// Parse email - different providers use different field names
-	if emailRaw, ok := raw["email"]; ok {
-		var email string
-		if err := json.Unmarshal(emailRaw, &email); err == nil {
-			info.Email = email
+	if provider == model.ProviderSlack {
+		// Slack's users.identity endpoint nests the profile under "user":
+		// {"ok":true,"user":{"id":..,"name":..,"email":..},"team":{...}}.
+		var slackUser struct {
+			Email string `json:"email"`
+			Name  string `json:"name"`
 		}
-	}
+		if userRaw, ok := raw["user"]; ok {
+			if err := json.Unmarshal(userRaw, &slackUser); err != nil {
+				return nil, fmt.Errorf("failed to decode slack user object: %w", err)
+			}
+		}
+		info.Email = slackUser.Email
+		info.Name = slackUser.Name
+	} else {
+		// Parse email - different providers use different field names
+		if emailRaw, ok := raw["email"]; ok {
+			var email string
+			if err := json.Unmarshal(emailRaw, &email); err == nil {
+				info.Email = email
+			}
+		}
 
-	// Parse name - try "name" then "login" (GitHub)
-	if nameRaw, ok := raw["name"]; ok {
-		var name string
-		if err := json.Unmarshal(nameRaw, &name); err == nil {
-			info.Name = name
+		// Parse name - try "name" then "login" (GitHub)
+		if nameRaw, ok := raw["name"]; ok {
+			var name string
+			if err := json.Unmarshal(nameRaw, &name); err == nil {
+				info.Name = name
+			}
 		}
-	}
-	if info.Name == "" {
-		if loginRaw, ok := raw["login"]; ok {
-			var login string
-			if err := json.Unmarshal(loginRaw, &login); err == nil {
-				info.Name = login
+		if info.Name == "" {
+			if loginRaw, ok := raw["login"]; ok {
+				var login string
+				if err := json.Unmarshal(loginRaw, &login); err == nil {
+					info.Name = login
+				}
 			}
 		}
 	}
