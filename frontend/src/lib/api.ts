@@ -81,11 +81,14 @@ export async function listActivities(date: string): Promise<Activity[]> {
   return fetchAPI<Activity[]>(`/activities?date=${date}`);
 }
 
-export async function collectActivities(): Promise<{
+export interface CollectResult {
   status: string;
-  message: string;
-}> {
-  return fetchAPI<{ status: string; message: string }>("/activities/collect", {
+  collected: number;
+  errors: number;
+}
+
+export async function collectActivities(): Promise<CollectResult> {
+  return fetchAPI<CollectResult>("/activities/collect", {
     method: "POST",
   });
 }

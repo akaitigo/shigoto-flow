@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -136,7 +137,7 @@ func (g *GmailSource) getMessageDetail(ctx context.Context, accessToken, message
 
 	detail := &messageDetail{
 		snippet: msg.Snippet,
-		date:    time.Now(),
+		date:    parseInternalDate(msg.InternalDate),
 	}
 
 	for _, header := range msg.Payload.Headers {
@@ -149,4 +150,15 @@ func (g *GmailSource) getMessageDetail(ctx context.Context, accessToken, message
 	}
 
 	return detail, nil
+}
+
+// parseInternalDate converts Gmail's internalDate (Unix milliseconds encoded as
+// a string) into a time.Time. It falls back to the current time when the value
+// is missing or cannot be parsed, so a malformed timestamp never drops a message.
+func parseInternalDate(internalDate string) time.Time {
+	ms, err := strconv.ParseInt(internalDate, 10, 64)
+	if err != nil {
+		return time.Now()
+	}
+	return time.UnixMilli(ms)
 }
