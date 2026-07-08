@@ -2,15 +2,21 @@
 
 import Link from "next/link";
 import { DataSourceSettings } from "@/components/datasource-settings";
+import { deleteDataSource } from "@/lib/api";
+import { oauthConnectUrl } from "@/lib/backend";
 import type { Provider } from "@/types/report";
 
 export default function SettingsPage() {
   const handleConnect = (provider: Provider) => {
-    window.location.href = `/api/v1/auth/${provider}`;
+    // Absolute URL to the backend origin — a relative URL would resolve against
+    // the frontend origin (:3000) and 404.
+    window.location.href = oauthConnectUrl(provider);
   };
 
-  const handleDisconnect = (_provider: Provider) => {
-    void _provider;
+  const handleDisconnect = async (provider: Provider) => {
+    await deleteDataSource(provider);
+    // Reload so the datasource list reflects the disconnected state.
+    window.location.reload();
   };
 
   return (
