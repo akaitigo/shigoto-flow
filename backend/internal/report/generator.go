@@ -47,19 +47,19 @@ func (g *Generator) Generate(ctx context.Context, userID string, tmpl *model.Tem
 func renderReport(tmpl *model.Template, activities []model.Activity, date time.Time, reportType model.ReportType) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("# %s — %s\n\n", reportTypeLabel(reportType), date.Format("2006-01-02")))
+	fmt.Fprintf(&sb, "# %s — %s\n\n", reportTypeLabel(reportType), date.Format("2006-01-02"))
 
 	grouped := groupBySource(activities)
 
 	for _, section := range tmpl.Sections {
-		sb.WriteString(fmt.Sprintf("## %s\n\n", section.Title))
+		fmt.Fprintf(&sb, "## %s\n\n", section.Title)
 
 		switch section.Title {
 		case "やったこと":
 			for source, acts := range grouped {
-				sb.WriteString(fmt.Sprintf("### %s\n", sourceLabel(source)))
+				fmt.Fprintf(&sb, "### %s\n", sourceLabel(source))
 				for _, a := range acts {
-					sb.WriteString(fmt.Sprintf("- %s\n", a.Title))
+					fmt.Fprintf(&sb, "- %s\n", a.Title)
 				}
 				sb.WriteString("\n")
 			}

@@ -12,6 +12,7 @@ type Config struct {
 	BackendURL         string
 	TokenEncryptionKey string
 	JWTSecret          string
+	CookieSameSite     string
 	DB                 DBConfig
 	Google             OAuthConfig
 	Slack              OAuthConfig
@@ -61,6 +62,10 @@ func Load() (*Config, error) {
 		BackendURL:         getEnv("BACKEND_URL", "http://localhost:8080"),
 		TokenEncryptionKey: os.Getenv("TOKEN_ENCRYPTION_KEY"),
 		JWTSecret:          os.Getenv("JWT_SECRET"),
+		// Default to Lax: sufficient for same-site frontend/backend deployments
+		// and safer against CSRF than None. Set to "none" only for genuine
+		// cross-site setups (requires HTTPS).
+		CookieSameSite: getEnv("COOKIE_SAME_SITE", "lax"),
 		DB: DBConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     dbPort,

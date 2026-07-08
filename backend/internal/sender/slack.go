@@ -46,7 +46,7 @@ func (s *SlackSender) Send(ctx context.Context, to, subject, body string) error 
 	if err != nil {
 		return fmt.Errorf("failed to send slack message: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)

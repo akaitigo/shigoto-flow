@@ -54,7 +54,7 @@ func (g *GmailSource) Collect(ctx context.Context, accessToken string, date time
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch gmail messages: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -113,7 +113,7 @@ func (g *GmailSource) getMessageDetail(ctx context.Context, accessToken, message
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch message detail: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

@@ -87,7 +87,7 @@ func (s *Service) CollectForUser(ctx context.Context, userID string, date time.T
 	}
 
 	go func() {
-		g.Wait()
+		_ = g.Wait()
 		close(results)
 	}()
 

@@ -64,7 +64,7 @@ func (h *Handler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	// Look up existing user by email, or create a new one
 	existingUser, err := h.repo.GetUserByEmail(r.Context(), userInfo.Email)
 	if err != nil {
-		slog.Error("failed to look up user by email", "email", userInfo.Email, "error", err)
+		slog.Error("failed to look up user by email", "email", maskEmail(userInfo.Email), "error", err)
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to look up user")
 		return
 	}
@@ -139,9 +139,11 @@ func (h *Handler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	// Set JWT as HttpOnly cookie instead of URL query parameter (RFC 6750 compliance)
 	frontendURL, parseErr := url.Parse(h.cfg.FrontendURL)
 	isSecure := parseErr == nil && frontendURL.Scheme == "https"
-	sameSite := http.SameSiteLaxMode
-	if isSecure {
-		sameSite = http.SameSiteNoneMode
+	sameSite := parseSameSite(h.cfg.CookieSameSite)
+	// SameSite=None is only valid on Secure cookies; downgrade to Lax over
+	// plain HTTP so the browser doesn't reject the cookie outright.
+	if sameSite == http.SameSiteNoneMode && !isSecure {
+		sameSite = http.SameSiteLaxMode
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -171,6 +173,31 @@ func cookieDomain(rawURL string) string {
 		return ""
 	}
 	return host
+}
+
+// maskEmail redacts the local part of an email address so it can be logged
+// without exposing PII, keeping only the domain for debugging context
+// (e.g. "user@example.com" -> "***@example.com"). Values that are not
+// email-shaped are fully redacted.
+func maskEmail(email string) string {
+	at := strings.LastIndex(email, "@")
+	if at <= 0 || at == len(email)-1 {
+		return "***"
+	}
+	return "***@" + email[at+1:]
+}
+
+// parseSameSite maps a COOKIE_SAME_SITE string to an http.SameSite mode.
+// Unknown or empty values fall back to Lax, the safer default.
+func parseSameSite(value string) http.SameSite {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "strict":
+		return http.SameSiteStrictMode
+	case "none":
+		return http.SameSiteNoneMode
+	default:
+		return http.SameSiteLaxMode
+	}
 }
 
 // isValidProvider checks whether the given provider is supported.

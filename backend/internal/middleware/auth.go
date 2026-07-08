@@ -30,7 +30,7 @@ func AuthWithSecret(secret []byte) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
+			ctx := WithUserID(r.Context(), claims.UserID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -47,6 +47,13 @@ func extractToken(r *http.Request) string {
 		return strings.TrimPrefix(authHeader, "Bearer ")
 	}
 	return ""
+}
+
+// WithUserID returns a copy of ctx that carries the given user ID. It is the
+// counterpart to UserIDFromContext, used by the auth middleware and by tests
+// that need to simulate an authenticated request.
+func WithUserID(ctx context.Context, userID string) context.Context {
+	return context.WithValue(ctx, userIDKey, userID)
 }
 
 func UserIDFromContext(ctx context.Context) string {

@@ -24,6 +24,27 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.DB.Port != 5432 {
 		t.Errorf("expected DB port 5432, got %d", cfg.DB.Port)
 	}
+
+	if cfg.CookieSameSite != "lax" {
+		t.Errorf("expected default cookie SameSite lax, got %q", cfg.CookieSameSite)
+	}
+
+	if cfg.DB.SSLMode != "disable" {
+		t.Errorf("expected default DB SSLMode disable, got %q", cfg.DB.SSLMode)
+	}
+}
+
+func TestLoad_CookieSameSiteOverride(t *testing.T) {
+	t.Setenv("COOKIE_SAME_SITE", "strict")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.CookieSameSite != "strict" {
+		t.Errorf("expected cookie SameSite strict, got %q", cfg.CookieSameSite)
+	}
 }
 
 func TestLoad_CustomPort(t *testing.T) {

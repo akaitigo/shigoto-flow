@@ -51,7 +51,7 @@ func (g *GoogleCalendarSource) Collect(ctx context.Context, accessToken string, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch calendar events: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

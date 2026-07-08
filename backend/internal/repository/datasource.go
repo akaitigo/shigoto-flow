@@ -59,7 +59,7 @@ func (r *Repository) ListDataSourcesByUser(ctx context.Context, userID string) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to list data sources: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var sources []model.DataSource
 	for rows.Next() {

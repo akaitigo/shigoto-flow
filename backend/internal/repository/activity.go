@@ -38,7 +38,7 @@ func (r *Repository) ListActivitiesByUserAndDate(ctx context.Context, userID str
 	if err != nil {
 		return nil, fmt.Errorf("failed to list activities: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var activities []model.Activity
 	for rows.Next() {
@@ -66,7 +66,7 @@ func (r *Repository) ListActivitiesByUserAndRange(ctx context.Context, userID st
 	if err != nil {
 		return nil, fmt.Errorf("failed to list activities by range: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var activities []model.Activity
 	for rows.Next() {

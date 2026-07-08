@@ -64,7 +64,7 @@ func (r *Repository) ListTemplatesByUser(ctx context.Context, userID string) ([]
 	if err != nil {
 		return nil, fmt.Errorf("failed to list templates: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var templates []model.Template
 	for rows.Next() {
