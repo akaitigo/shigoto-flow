@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/akaitigo/shigoto-flow/backend/internal/model"
 )
@@ -54,6 +55,38 @@ func (r *Repository) ListReportsByUser(ctx context.Context, userID string, repor
 	rows, err := r.db.QueryContext(ctx, query, userID, reportType, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list reports: %w", err)
+	}
+	defer rows.Close()
+
+	var reports []model.Report
+	for rows.Next() {
+		var report model.Report
+		if err := rows.Scan(
+			&report.ID, &report.UserID, &report.Type, &report.TemplateID,
+			&report.Content, &report.Date, &report.Status,
+			&report.CreatedAt, &report.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan report: %w", err)
+		}
+		reports = append(reports, report)
+	}
+	return reports, rows.Err()
+}
+
+// ListReportsByUserAndDateRange returns all reports of the given type whose
+// date falls within [start, end). Unlike ListReportsByUser it is not capped by
+// a fixed limit, so callers can retrieve an arbitrary historical window (e.g.
+// a specific past week or month) rather than only the most recent reports.
+func (r *Repository) ListReportsByUserAndDateRange(ctx context.Context, userID string, reportType model.ReportType, start, end time.Time) ([]model.Report, error) {
+	query := `
+		SELECT id, user_id, type, template_id, content, date, status, created_at, updated_at
+		FROM reports
+		WHERE user_id = $1 AND type = $2 AND date >= $3 AND date < $4
+		ORDER BY date DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query, userID, reportType, start, end)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list reports by date range: %w", err)
 	}
 	defer rows.Close()
 
